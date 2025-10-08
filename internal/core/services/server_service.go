@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -222,11 +221,9 @@ func (s *serverService) StartForward(alias string, extraArgs []string) (int, err
 	cmd.Stdin = devNull
 	cmd.Stdout = devNull
 	cmd.Stderr = devNull
-	// Set SysProcAttr conditionally to avoid Windows-only build issues
+	// Set SysProcAttr in an OS-specific way (see sysprocattr_* files)
 	sysProcAttr := &syscall.SysProcAttr{}
-	if runtime.GOOS != "windows" {
-		sysProcAttr.Setsid = true
-	}
+	setDetach(sysProcAttr)
 	cmd.SysProcAttr = sysProcAttr
 
 	if err := cmd.Start(); err != nil {
