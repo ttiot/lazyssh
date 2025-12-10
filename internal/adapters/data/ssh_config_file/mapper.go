@@ -23,10 +23,10 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// toDomainServer converts ssh_config.Config to a slice of domain.Server.
-func (r *Repository) toDomainServer(cfg *ssh_config.Config) []domain.Server {
-	servers := make([]domain.Server, 0, len(cfg.Hosts))
-	for _, host := range cfg.Hosts {
+// toDomainServer converts a list of ssh_config.Host entries to a slice of domain.Server.
+func (r *Repository) toDomainServer(hosts []*ssh_config.Host) []domain.Server {
+	servers := make([]domain.Server, 0, len(hosts))
+	for _, host := range hosts {
 
 		aliases := make([]string, 0, len(host.Patterns))
 
