@@ -54,12 +54,12 @@ func NewRepositoryWithFS(logger *zap.SugaredLogger, configPath string, metaDataP
 // ListServers returns all servers matching the query pattern.
 // Empty query returns all servers.
 func (r *Repository) ListServers(query string) ([]domain.Server, error) {
-	cfg, err := r.loadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
+        _, hosts, err := r.loadConfigWithIncludes()
+        if err != nil {
+                return nil, fmt.Errorf("failed to load config: %w", err)
+        }
 
-	servers := r.toDomainServer(cfg)
+	servers := r.toDomainServer(hosts)
 	metadata, err := r.metadataManager.loadAll()
 	if err != nil {
 		r.logger.Warnf("Failed to load metadata: %v", err)
@@ -75,12 +75,12 @@ func (r *Repository) ListServers(query string) ([]domain.Server, error) {
 
 // AddServer adds a new server to the SSH config.
 func (r *Repository) AddServer(server domain.Server) error {
-	cfg, err := r.loadConfig()
+	cfg, hosts, err := r.loadConfigWithIncludes()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if r.serverExists(cfg, server.Alias) {
+	if r.serverExistsInHosts(hosts, server.Alias) {
 		return fmt.Errorf("server with alias '%s' already exists", server.Alias)
 	}
 
@@ -96,7 +96,7 @@ func (r *Repository) AddServer(server domain.Server) error {
 
 // UpdateServer updates an existing server in the SSH config.
 func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server) error {
-	cfg, err := r.loadConfig()
+	cfg, hosts, err := r.loadConfigWithIncludes()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -107,7 +107,7 @@ func (r *Repository) UpdateServer(server domain.Server, newServer domain.Server)
 	}
 
 	if server.Alias != newServer.Alias {
-		if r.serverExists(cfg, newServer.Alias) {
+		if r.serverExistsInHosts(hosts, newServer.Alias) {
 			return fmt.Errorf("server with alias '%s' already exists", newServer.Alias)
 		}
 

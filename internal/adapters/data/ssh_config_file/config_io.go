@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
+	"unsafe"
 
 	"github.com/kevinburke/ssh_config"
 )
@@ -45,6 +47,89 @@ func (r *Repository) loadConfig() (*ssh_config.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadConfigWithIncludes returns the base SSH config along with all hosts from included files.
+func (r *Repository) loadConfigWithIncludes() (*ssh_config.Config, []*ssh_config.Host, error) {
+	cfg, err := r.loadConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	visited := map[string]bool{filepath.Clean(r.configPath): true}
+	hosts := r.collectHosts(cfg, visited)
+
+	return cfg, hosts, nil
+}
+
+// collectHosts gathers hosts from the given config and any nested Include directives.
+func (r *Repository) collectHosts(cfg *ssh_config.Config, visited map[string]bool) []*ssh_config.Host {
+	hosts := make([]*ssh_config.Host, 0, len(cfg.Hosts))
+
+	for _, host := range cfg.Hosts {
+		hosts = append(hosts, host)
+		hosts = append(hosts, r.collectHostsFromNodes(host.Nodes, visited)...)
+	}
+
+	return hosts
+}
+
+// collectHostsFromNodes recursively collects hosts referenced by Include directives within the provided nodes.
+func (r *Repository) collectHostsFromNodes(nodes []ssh_config.Node, visited map[string]bool) []*ssh_config.Host {
+	includeHosts := make([]*ssh_config.Host, 0)
+
+	for _, node := range nodes {
+		includeNode, ok := node.(*ssh_config.Include)
+		if !ok {
+			continue
+		}
+
+		matches, files := r.extractIncludeDetails(includeNode)
+		for _, match := range matches {
+			if visited[match] {
+				continue
+			}
+
+			visited[match] = true
+			includedCfg, exists := files[match]
+			if !exists || includedCfg == nil {
+				r.logger.Warnf("include target %s missing or not parsed", match)
+				continue
+			}
+
+			includeHosts = append(includeHosts, r.collectHosts(includedCfg, visited)...)
+		}
+	}
+
+	return includeHosts
+}
+
+// extractIncludeDetails uses reflection to access the include matches and parsed configs.
+// The underlying ssh_config.Include type keeps these fields unexported.
+func (r *Repository) extractIncludeDetails(includeNode *ssh_config.Include) ([]string, map[string]*ssh_config.Config) {
+	includeValue := reflect.ValueOf(includeNode).Elem()
+
+	matchesValue := includeValue.FieldByName("matches")
+	filesValue := includeValue.FieldByName("files")
+
+	matches := []string{}
+	files := map[string]*ssh_config.Config{}
+
+	if matchesValue.IsValid() {
+		matchesPtr := reflect.NewAt(matchesValue.Type(), unsafe.Pointer(matchesValue.UnsafeAddr())).Elem()
+		if m, ok := matchesPtr.Interface().([]string); ok {
+			matches = m
+		}
+	}
+
+	if filesValue.IsValid() {
+		filesPtr := reflect.NewAt(filesValue.Type(), unsafe.Pointer(filesValue.UnsafeAddr())).Elem()
+		if f, ok := filesPtr.Interface().(map[string]*ssh_config.Config); ok {
+			files = f
+		}
+	}
+
+	return matches, files
 }
 
 // saveConfig writes the SSH config back to the file with atomic operations and backup management.
