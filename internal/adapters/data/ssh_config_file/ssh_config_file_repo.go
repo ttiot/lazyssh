@@ -54,10 +54,10 @@ func NewRepositoryWithFS(logger *zap.SugaredLogger, configPath string, metaDataP
 // ListServers returns all servers matching the query pattern.
 // Empty query returns all servers.
 func (r *Repository) ListServers(query string) ([]domain.Server, error) {
-        _, hosts, err := r.loadConfigWithIncludes()
-        if err != nil {
-                return nil, fmt.Errorf("failed to load config: %w", err)
-        }
+	_, hosts, err := r.loadConfigWithIncludes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
 
 	servers := r.toDomainServer(hosts)
 	metadata, err := r.metadataManager.loadAll()

@@ -116,6 +116,7 @@ func (r *Repository) extractIncludeDetails(includeNode *ssh_config.Include) ([]s
 	files := map[string]*ssh_config.Config{}
 
 	if matchesValue.IsValid() {
+		//nolint:gosec // Accessing unexported matches field is required because ssh_config.Include does not expose accessors.
 		matchesPtr := reflect.NewAt(matchesValue.Type(), unsafe.Pointer(matchesValue.UnsafeAddr())).Elem()
 		if m, ok := matchesPtr.Interface().([]string); ok {
 			matches = m
@@ -123,6 +124,7 @@ func (r *Repository) extractIncludeDetails(includeNode *ssh_config.Include) ([]s
 	}
 
 	if filesValue.IsValid() {
+		//nolint:gosec // Accessing unexported files field is required because ssh_config.Include does not expose accessors.
 		filesPtr := reflect.NewAt(filesValue.Type(), unsafe.Pointer(filesValue.UnsafeAddr())).Elem()
 		if f, ok := filesPtr.Interface().(map[string]*ssh_config.Config); ok {
 			files = f
